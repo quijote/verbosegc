@@ -1,0 +1,15 @@
+body {
+    background: white;
+    color: black;
+    font-family: sans-serif;
+}
+
+a {
+    color: black;
+}
+
+div.chart {
+    width: 95%;
+    height: 350px;
+    margin: 20px;
+}

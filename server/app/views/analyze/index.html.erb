@@ -1,0 +1,37 @@
+
+<h1>
+    JVM Garbage Collection Statistics
+</h1>
+
+
+<div style="margin: 10px; border: 1px solid black; padding: 20px; float: left;">
+    <form action="/upload" method="post" enctype="multipart/form-data">    
+
+        <h3 style="margin-top: 0px;">
+            Step 1. Create a detailed garbage collection log file
+        </h3>
+
+        Add the following to your java command line:<br><br>
+        <tt>
+             -verbose:gc -XX:+PrintGCTimeStamps -XX:+PrintGCDetails -Xloggc:/tmp/gc.log
+        </tt>
+
+        <h3>
+         Step 2. Select the resulting file
+        </h3>
+
+
+        <input name="file" type="file" size="50">
+
+        <h3>
+            Step 3. Upload and analyze data
+        </h3>
+
+        <input type="submit" value="Go!" style="font-size: larger;" />
+    </form>
+</div>
+
+<div style=" margin: 10px; border: 1px solid black; padding: 20px; float: left;">
+  <a href="/view/59a7d79225b125777e974a67b776bf5b">View sample report</a>
+</div>
+

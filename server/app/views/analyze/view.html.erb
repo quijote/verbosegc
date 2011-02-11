@@ -1,0 +1,21 @@
+<div style="margin: 20px;">
+    <a href="/">Home</a> |
+    <a href="#" onclick="createOverviewCharts(); return false;">Overview</a> |
+    <a href="#" onclick="createYoungGenCharts(); return false;">Young Generation</a> |
+    <a href="#" onclick="createOldGenCharts(); return false;">Old Generation</a>
+</div>
+
+<script type="text/javascript">
+    $(document).ready(function() {
+        $.ajax({
+            url: "/data/<%= @name %>",
+            success: function(data) {
+                series = prepareSeries(data);
+                createOverviewCharts()
+            }
+        });
+    });
+</script>
+
+<div id="charts">
+</div>
