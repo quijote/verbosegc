@@ -30,10 +30,9 @@ class AnalyzeController < ApplicationController
     json = analyze_log_file(f.tempfile)
     if(json)
       h = Digest::MD5.hexdigest(json)
-      s = Snapshot.new
+      s = Snapshot.find_by_name(h) || Snapshot.new
       s.name = h
       s.json = json
-      puts h
       s.save
       redirect_to(:action => :view, :name => h)
     else

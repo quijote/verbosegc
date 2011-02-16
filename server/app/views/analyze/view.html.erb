@@ -1,8 +1,15 @@
 <div style="margin: 20px;">
     <a href="/">Home</a> |
-    <a href="#" onclick="createOverviewCharts(); return false;">Overview</a> |
-    <a href="#" onclick="createYoungGenCharts(); return false;">Young Generation</a> |
-    <a href="#" onclick="createOldGenCharts(); return false;">Old Generation</a>
+    <a href="#" onclick="setView('overview'); return false;">Overview</a> |
+    <a href="#" onclick="setView('young'); return false;">Young Generation</a> |
+    <a href="#" onclick="setView('old'); return false;">Old Generation</a>
+
+    <p>
+    <b>Resolution:</b>
+    <a href="#" onclick="setResolution(10); return false;">10s</a> |
+    <a href="#" onclick="setResolution(60); return false;">1 mintue</a> |
+    <a href="#" onclick="setResolution(5 * 60); return false;">5 minutes</a>
+    </p>
 </div>
 
 <script type="text/javascript">
@@ -10,8 +17,8 @@
         $.ajax({
             url: "/data/<%= @name %>",
             success: function(data) {
-                series = prepareSeries(data);
-                createOverviewCharts()
+                setRawData(data);
+                setView('overview')
             }
         });
     });

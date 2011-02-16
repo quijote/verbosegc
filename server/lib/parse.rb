@@ -36,33 +36,49 @@ end
 
 class ParNewEvent < GcEvent
 
-  attr_reader :young_before, :young_after, :young_size, :heap_before, :heap_after, :heap_size
+  attr_reader :young_before, :young_after, :young_size, :total_before, :total_after, :total_size
 
-  def initialize(timestamp, times, young_before, young_after, young_size, heap_before, heap_after, heap_size)
+  def initialize(timestamp, times, young_before, young_after, young_size, total_before, total_after, total_size)
     super(:gc, timestamp, times)
     @young_before = young_before
     @young_after = young_after
     @young_size = young_size
-    @heap_before = heap_before
-    @heap_after = heap_after
-    @heap_size = heap_size
+    @total_before = total_before
+    @total_after = total_after
+    @total_size = total_size
   end
 
-  def dump
-    young_dif = @young_before - @young_after
-    heap_dif = @heap_before - @heap_after
-    puts "#{young_dif} #{heap_dif} #{young_dif - heap_dif}"
+  def young_diff
+    return young_before - young_after
+  end
+
+  def total_diff
+    return total_before - total_after
+  end
+
+  def old_before
+    return total_before - young_before
+  end
+
+  def old_after
+    return total_after - young_after
+  end
+
+  def old_diff
+    return old_after - old_before
   end
 
   def collected_garbage
-    heap_dif = @heap_before - @heap_after
-    return heap_dif
+    total_dif = total_before - total_after
+    return total_dif
   end
 
   def promoted
-    young_dif = @young_before - @young_after
-    heap_dif = @heap_before - @heap_after
-    return Math.max(0, young_dif - heap_dif)
+    return Math.max(0, young_diff - total_diff)
+  end
+
+  def dump
+    puts "#{timestamp.to_i};#{young_before};#{young_after};#{young_diff};#{total_before};#{total_after};#{total_diff};#{old_before};#{old_after};#{old_diff}"
   end
 
 end
@@ -80,10 +96,10 @@ def parse_file(file_name)
           young_before = $1.to_i
           young_after = $2.to_i
           young_size = $3.to_i
-          heap_before = $4.to_i
-          heap_after = $5.to_i
-          heap_size = $6.to_i
-          events << ParNewEvent.new(timestamp, times, young_before, young_after, young_size, heap_before, heap_after, heap_size)
+          total_before = $4.to_i
+          total_after = $5.to_i
+          total_size = $6.to_i
+          events << ParNewEvent.new(timestamp, times, young_before, young_after, young_size, total_before, total_after, total_size)
         else
           #[GC [1 CMS-initial-mark: 3950740K(7898752K)] 3978078K(8339648K), 0.0790370 secs] [Times: user=0.04 sys=0.04, real=0.08 secs]
           times = extract_times(rest)
@@ -137,16 +153,19 @@ end
 
 def young_gen_timeseries(events, resolution)
   time = 0
-  heap = 0
+  total = 0
+  old = 0
   num_collections = 0
   collected_garbage = 0
+  collected_old_garbage = 0
   promoted = 0
   cpu = 0
   real = 0
 
-  list_heap = []
+  list_total = []
   list_num_collections = []
   list_collected_garbage = []
+  list_collected_old_garbage = []
   list_promoted = []
   list_cpu = []
   list_real = []
@@ -154,36 +173,41 @@ def young_gen_timeseries(events, resolution)
   for e in events
     if(e.kind == :gc)
       while e.timestamp > time
-        list_heap << heap / 1024
+        list_total << total / 1024
         list_num_collections << num_collections
         list_collected_garbage << collected_garbage / 1024
+        list_collected_old_garbage << collected_old_garbage / 1024
         list_promoted << promoted / 1024
         list_cpu << (cpu * 1000).to_i
         list_real << (real * 1000).to_i
 
         num_collections = 0
         collected_garbage = 0
+        collected_old_garbage = 0
         promoted = 0
         cpu = 0
         real = 0
         time += resolution
       end
       num_collections += 1
-      heap = e.heap_after
+      collected_old_garbage += old - e.old_before
       collected_garbage += e.collected_garbage
       promoted += e.promoted
       cpu += e.user + e.sys
       real += e.real
+      old = e.old_after
+      total = e.total_after
     end
   end
 
   return [
-    list_heap,
+    list_total,
     list_num_collections,
     list_collected_garbage,
+    list_collected_old_garbage,
     list_promoted,
     list_cpu,
-    list_real,
+    list_real
   ]
 
 end
@@ -309,5 +333,25 @@ def analyze_log_file(file_name)
   events = parse_file(file_name)
   young_gen = young_gen_timeseries(events, 60)
   old_gen = old_gen_timeseries(events, 60)
-  return JSON.dump([young_gen, old_gen])
+  
+  #return JSON.pretty_generate([
+  return JSON.dump([
+    young_gen, 
+    old_gen
+  ])
 end
+
+def dump_csv(file_name)
+  events = parse_file(file_name)
+  puts "Time;Young Before;Young After;Young Diff;Total Before;Total After;Total Diff;Old Before;Old After;Old Diff"
+  for e in events
+    if e.kind == :gc
+      e.dump()
+    end
+  end
+end
+
+
+
+# puts analyze_log_file("../../sample.log")
+# dump_csv("../../sample.log")

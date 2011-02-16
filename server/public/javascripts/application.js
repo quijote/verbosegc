@@ -1,172 +1,57 @@
-var resolution = 60
+var rawData = null
 
-function createSingleAxisChart(id, duration, yName, yUnit, meta_series, title) {
-    if(!title) {
-        title = ""
-        for(var i = 0; i < meta_series.length; i++) {
-            if(i != 0) title += " vs. "
-            title += meta_series[i].name
-        }
-    }
-    chart_series = []
-    for(var i = 0; i < meta_series.length; i++) {
-        var s = meta_series[i];
-        chart_series.push({
-            name: s.name,
-            pointInterval: 60 * 1000,
-            type: 'spline',
-            lineWidth: 2,
-            marker: {
-                radius: 2
-            },
-            data: s.data
-        });
-    }
-
-
-    var chart = new Highcharts.Chart({
-        chart: {
-            renderTo: id,
-            zoomType: 'x',
-            borderWidth: 1
-        },
-        title: {
-            text: title
-        },
-        plotOptions: {
-            series: {
-                animation: false
-            }
-        },
-        xAxis: [{
-            type: 'datetime',
-            //maxZoom: duration * 1000
-        }],
-        yAxis: [{ // Primary yAxis
-            labels: {
-                formatter: function() {
-                    return this.value + ' ' + yUnit;
-                }
-            },
-            title: {
-                text: yName
-            },
-            min: 0
-        }],
-        tooltip: {
-            formatter: function() {
-                return this.y + ' ' + yUnit;
-            }
-        },
-        legend: {
-            layout: 'vertical',
-            align: 'left',
-            x: 100,
-            verticalAlign: 'top',
-            y: 50,
-            floating: true,
-            backgroundColor: '#FFFFFF'
-        },
-        series: chart_series
-    });
+function setRawData(newRawData) {
+    rawData = newRawData
+    series = prepareSeries(rawData)
 }
 
-function createDualAxisChart(id, duration, seriesA, seriesB) {
-    var colorA = '#A74444'
-    var colorB = '#4572A7'
-    var chart = new Highcharts.Chart({
-        chart: {
-            renderTo: id,
-            zoomType: 'x',
-            borderWidth: 1
-        },
-        title: {
-            text: seriesA.name + " vs. " + seriesB.name
-        },
-        plotOptions: {
-            series: {
-                animation: false
-            }
-        },
-        xAxis: [{
-            type: 'datetime',
-            //maxZoom: duration * 1000
-        }],
-        yAxis: [{ // Primary yAxis
-            labels: {
-                formatter: function() {
-                    return this.value + ' ' + seriesA.unit;
-                },
-                style: {
-                    color: colorA
-                }
-            },
-            title: {
-                text: seriesA.name,
-                style: {
-                    color: colorA
-                }
-            },
-            min: 0
-        }, { // Secondary yAxis
-            title: {
-                text: seriesB.name,
-                style: {
-                    color: colorB
-                }
-            },
-            labels: {
-                formatter: function() {
-                    return this.value + ' ' + seriesB.unit;
-                },
-                style: {
-                    color: colorB
-                }
-            },
-            min: 0,
-            opposite: true
-        }],
-        tooltip: {
-            formatter: function() {
-                return ''+
-                    this.y +
-                    (this.series.name == seriesA.name ? ' ' + seriesA.unit : ' ' + seriesB.unit);
-            }
-        },
-        legend: {
-            layout: 'vertical',
-            align: 'left',
-            x: 100,
-            verticalAlign: 'top',
-            y: 50,
-            floating: true,
-            backgroundColor: '#FFFFFF'
-        },
-        series: [{
-            name: seriesA.name,
-            color: colorA,
-            pointInterval: 60 * 1000,
-            type: 'spline',
-            lineWidth: 2,
-            marker: {
-                radius: 2
-            },
-            data: seriesA.data
-        },
-        {
-            name: seriesB.name,
-            color: colorB,
-            pointInterval: 60 * 1000,
-            type: 'spline',
-            lineWidth: 2,
-            marker: {
-                radius: 2
-            },
-            yAxis: 1,
-            data: seriesB.data
+var view = null
 
-        }]
-    });
+function setView(newView) {
+    view = newView;
+    refresh();
+}
+
+var resolution = 60
+
+function setResolution(newResolution) {
+    resolution = newResolution;
+    series = prepareSeries(rawData)
+    refresh();
+}
+
+var series = null
+
+function refresh() {
+    document.getElementById("charts").innerHTML = ""
+    setTimeout(function() {
+
+
+
+        if(view == "overview") {
+            createOverviewCharts();
+        } else if(view == "young") {
+            createYoungGenCharts();
+        } else if(view == "old") {
+            createOldGenCharts();
+        }
+    }, 10);
+}
+
+function average(list, sourceResolution, targetResolution) {
+    if(sourceResolution == targetResolution) {
+        return list;
+    }
+    var chunks = targetResolution / sourceResolution;
+    var len = list.length;
+    var res = []
+    for(var i = 0; i < len; i += chunks) {
+        var sum = 0;
+        for(var j = 0; j < chunks; j++) {
+            sum += list[i + j]
+        }
+        res.push(sum / chunks)
+    }
 }
 
 function prepareSeries(list) {
@@ -176,10 +61,11 @@ function prepareSeries(list) {
     var heap = young[0]
     var collections = young[1]
     var garbage = young[2]
-    var promoted = young[3]
+    var garbage_old = young[3]
+    var promoted = young[4]
     var allocated = []
-    var cpu_ms = young[4]
-    var real_ms = young[5]
+    var cpu_ms = young[5]
+    var real_ms = young[6]
     var cpu = []
     var cpu_pct = []
     var real = []
@@ -236,6 +122,7 @@ function prepareSeries(list) {
     res.heap = heap
     res.collections = collections
     res.garbage = garbage
+    res.garbage_old = garbage_old
     res.promoted = promoted
     res.allocated = allocated
     res.cpu = cpu
@@ -277,11 +164,8 @@ var nextContainerId = 0;
         return div.id
     }
 
-var series = {}
 
 function createOverviewCharts() {
-    document.getElementById("charts").innerHTML = ""
-
     var len = series.heap.length;
 
     createDualAxisChart(createContainer(), len * 60,
@@ -379,8 +263,6 @@ function createOverviewCharts() {
 }
 
 function createYoungGenCharts() {
-    document.getElementById("charts").innerHTML = ""
-
     var len = series.heap.length;
 
     createDualAxisChart(createContainer(), len * 60,
@@ -508,8 +390,6 @@ function createYoungGenCharts() {
 }
 
 function createOldGenCharts() {
-    document.getElementById("charts").innerHTML = ""
-
     var len = series.heap.length;
 
     createDualAxisChart(createContainer(), len * 60,
@@ -523,6 +403,18 @@ function createOldGenCharts() {
             data: series.old_cpu_pct
         }
     );
+
+    createSingleAxisChart(createContainer(), len * 60, "Memory", "MB",
+         [{
+             name: "Promoted memory per minute",
+             unit: "MB",
+             data: series.promoted
+         }, {
+             name: "Collected old memory per minute",
+             unit: "MB",
+             data: series.garbage_old
+         }]
+     );
 
     createSingleAxisChart(createContainer(), len * 60, "CPU Time", "s",
         [{
@@ -608,4 +500,171 @@ function createOldGenCharts() {
     );
     */
 
+}
+
+function createSingleAxisChart(id, duration, yName, yUnit, meta_series, title) {
+    if(!title) {
+        title = ""
+        for(var i = 0; i < meta_series.length; i++) {
+            if(i != 0) title += " vs. "
+            title += meta_series[i].name
+        }
+    }
+    chart_series = []
+    for(var i = 0; i < meta_series.length; i++) {
+        var s = meta_series[i];
+        chart_series.push({
+            name: s.name,
+            pointInterval: 60 * 1000,
+            type: 'spline',
+            lineWidth: 2,
+            marker: {
+                radius: 2
+            },
+            data: s.data
+        });
+    }
+
+
+    var chart = new Highcharts.Chart({
+        chart: {
+            renderTo: id,
+            zoomType: 'x',
+            borderWidth: 1
+        },
+        title: {
+            text: title
+        },
+        plotOptions: {
+            series: {
+                animation: false
+            }
+        },
+        xAxis: [{
+            type: 'datetime'
+        }],
+        yAxis: [{ // Primary yAxis
+            labels: {
+                formatter: function() {
+                    return this.value + ' ' + yUnit;
+                }
+            },
+            title: {
+                text: yName
+            },
+            min: 0
+        }],
+        tooltip: {
+            formatter: function() {
+                return this.y + ' ' + yUnit;
+            }
+        },
+        legend: {
+            layout: 'vertical',
+            align: 'left',
+            x: 100,
+            verticalAlign: 'top',
+            y: 50,
+            floating: true,
+            backgroundColor: '#FFFFFF'
+        },
+        series: chart_series
+    });
+}
+
+function createDualAxisChart(id, duration, seriesA, seriesB) {
+    var colorA = '#A74444'
+    var colorB = '#4572A7'
+    var chart = new Highcharts.Chart({
+        chart: {
+            renderTo: id,
+            zoomType: 'x',
+            borderWidth: 1
+        },
+        title: {
+            text: seriesA.name + " vs. " + seriesB.name
+        },
+        plotOptions: {
+            series: {
+                animation: false
+            }
+        },
+        xAxis: [{
+            type: 'datetime'
+        }],
+        yAxis: [{ // Primary yAxis
+            labels: {
+                formatter: function() {
+                    return this.value + ' ' + seriesA.unit;
+                },
+                style: {
+                    color: colorA
+                }
+            },
+            title: {
+                text: seriesA.name,
+                style: {
+                    color: colorA
+                }
+            },
+            min: 0
+        }, { // Secondary yAxis
+            title: {
+                text: seriesB.name,
+                style: {
+                    color: colorB
+                }
+            },
+            labels: {
+                formatter: function() {
+                    return this.value + ' ' + seriesB.unit;
+                },
+                style: {
+                    color: colorB
+                }
+            },
+            min: 0,
+            opposite: true
+        }],
+        tooltip: {
+            formatter: function() {
+                return ''+
+                    this.y +
+                    (this.series.name == seriesA.name ? ' ' + seriesA.unit : ' ' + seriesB.unit);
+            }
+        },
+        legend: {
+            layout: 'vertical',
+            align: 'left',
+            x: 100,
+            verticalAlign: 'top',
+            y: 50,
+            floating: true,
+            backgroundColor: '#FFFFFF'
+        },
+        series: [{
+            name: seriesA.name,
+            color: colorA,
+            pointInterval: 60 * 1000,
+            type: 'spline',
+            lineWidth: 2,
+            marker: {
+                radius: 2
+            },
+            data: seriesA.data
+        },
+        {
+            name: seriesB.name,
+            color: colorB,
+            pointInterval: 60 * 1000,
+            type: 'spline',
+            lineWidth: 2,
+            marker: {
+                radius: 2
+            },
+            yAxis: 1,
+            data: seriesB.data
+
+        }]
+    });
 }
