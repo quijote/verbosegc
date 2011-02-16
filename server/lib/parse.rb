@@ -331,8 +331,8 @@ end
 
 def analyze_log_file(file_name)
   events = parse_file(file_name)
-  young_gen = young_gen_timeseries(events, 60)
-  old_gen = old_gen_timeseries(events, 60)
+  young_gen = young_gen_timeseries(events, 10)
+  old_gen = old_gen_timeseries(events, 10)
   
   #return JSON.pretty_generate([
   return JSON.dump([

@@ -12,6 +12,7 @@ function setView(newView) {
     refresh();
 }
 
+var sourceResolution = 10
 var resolution = 60
 
 function setResolution(newResolution) {
@@ -25,9 +26,6 @@ var series = null
 function refresh() {
     document.getElementById("charts").innerHTML = ""
     setTimeout(function() {
-
-
-
         if(view == "overview") {
             createOverviewCharts();
         } else if(view == "young") {
@@ -38,70 +36,105 @@ function refresh() {
     }, 10);
 }
 
-function average(list, sourceResolution, targetResolution) {
+function list_average(list, sourceResolution, targetResolution) {
     if(sourceResolution == targetResolution) {
         return list;
     }
     var chunks = targetResolution / sourceResolution;
     var len = list.length;
     var res = []
-    for(var i = 0; i < len; i += chunks) {
+    for(var i = 0; i <= len - chunks; i += chunks) {
         var sum = 0;
         for(var j = 0; j < chunks; j++) {
             sum += list[i + j]
         }
         res.push(sum / chunks)
     }
+    return res;
+}
+
+function list_average_per_sec(list, sourceResolution, targetResolution) {
+    if(sourceResolution == targetResolution) {
+        return list;
+    }
+    var chunks = targetResolution / sourceResolution;
+    var len = list.length;
+    var res = []
+    for(var i = 0; i <= len - chunks; i += chunks) {
+        var sum = 0;
+        for(var j = 0; j < chunks; j++) {
+            sum += list[i + j]
+        }
+        res.push(sum / targetResolution)
+    }
+    return res;
+}
+
+function list_sum(list, sourceResolution, targetResolution) {
+    if(sourceResolution == targetResolution) {
+        return list;
+    }
+    var chunks = targetResolution / sourceResolution;
+    var len = list.length;
+    var res = []
+    for(var i = 0; i <= len - chunks; i += chunks) {
+        var sum = 0;
+        for(var j = 0; j < chunks; j++) {
+            sum += list[i + j]
+        }
+        res.push(sum)
+    }
+    return res;
 }
 
 function prepareSeries(list) {
     var young = list[0];
     var old = list[1];
 
-    var heap = young[0]
-    var collections = young[1]
-    var garbage = young[2]
-    var garbage_old = young[3]
-    var promoted = young[4]
+    var heap = list_average(young[0], sourceResolution, resolution);
+    var collections = list_sum(young[1], sourceResolution, resolution);
+    var garbage = list_average_per_sec(young[2], sourceResolution, resolution);
+    var garbage_old = list_average_per_sec(young[3], sourceResolution, resolution);
+    var promoted = list_average_per_sec(young[4], sourceResolution, resolution);
     var allocated = []
-    var cpu_ms = young[5]
-    var real_ms = young[6]
-    var cpu = []
-    var cpu_pct = []
-    var real = []
-    var promoted_pct = []
-    var cpu_avg = []
-    var real_avg = []
+    var cpu_ms = list_average_per_sec(young[5], sourceResolution, resolution);
+    var real_ms = list_average_per_sec(young[6], sourceResolution, resolution);
+    var cpu = [];
+    var cpu_pct = [];
+    var real = [];
+    var promoted_pct = [];
+    var cpu_avg = [];
+    var real_avg = [];
 
     var len = heap.length;
     for(var i = 0; i < len; i++) {
         allocated.push(garbage[i] + promoted[i])
         cpu.push(cpu_ms[i] / 1000)
-        cpu_pct.push(Math.round(100 * cpu_ms[i] / (1000 * resolution)))
+        cpu_pct.push(Math.round(100 * cpu_ms[i] / 1000))
         real.push(real_ms[i] / 1000)
 
-        cpu_avg.push(Math.round(cpu_ms[i] / Math.max(1, collections[i])))
-        real_avg.push(Math.round(real_ms[i] / Math.max(1, collections[i])))
+        cpu_avg.push(Math.round(cpu_ms[i] / Math.max(1, collections[i] / resolution)))
+        real_avg.push(Math.round(real_ms[i] / Math.max(1, collections[i] / resolution)))
 
         var fact = promoted[i] / Math.max(1, (promoted[i] + garbage[i]))
         promoted_pct.push(Math.round(10000 * fact) / 100)
     }
 
-    var initmark_cpu = old[0]
-    var initmark_real = old[1]
-    var mark_cpu = old[2]
-    var mark_real = old[3]
-    var preclean_cpu = old[4]
-    var preclean_real = old[5]
-    var abortable_preclean_cpu = old[6]
-    var abortable_preclean_real = old[7]
-    var remark_cpu = old[8]
-    var remark_real = old[9]
-    var sweep_cpu = old[10]
-    var sweep_real = old[11]
-    var reset_cpu = old[12]
-    var reset_real = old[13]
-    var old_collections = old[14]
+    var initmark_cpu = list_average_per_sec(old[0], sourceResolution, resolution);
+    var initmark_real = list_average_per_sec(old[1], sourceResolution, resolution);
+    var mark_cpu = list_average_per_sec(old[2], sourceResolution, resolution);
+    var mark_real = list_average_per_sec(old[3], sourceResolution, resolution);
+    var preclean_cpu = list_average_per_sec(old[4], sourceResolution, resolution);
+    var preclean_real = list_average_per_sec(old[5], sourceResolution, resolution);
+    var abortable_preclean_cpu = list_average_per_sec(old[6], sourceResolution, resolution);
+    var abortable_preclean_real = list_average_per_sec(old[7], sourceResolution, resolution);
+    var remark_cpu = list_average_per_sec(old[8], sourceResolution, resolution);
+    var remark_real = list_average_per_sec(old[9], sourceResolution, resolution);
+    var sweep_cpu = list_average_per_sec(old[10], sourceResolution, resolution);
+    var sweep_real = list_average_per_sec(old[11], sourceResolution, resolution);
+    var reset_cpu = list_average_per_sec(old[12], sourceResolution, resolution);
+    var reset_real = list_average_per_sec(old[13], sourceResolution, resolution);
+    var old_collections = list_sum(old[14], sourceResolution, resolution);
     var old_cpu = []
     var old_cpu_pct = []
     var total_cpu = []
@@ -111,10 +144,10 @@ function prepareSeries(list) {
     for(var i = 0; i < len; i++) {
         var old = initmark_cpu[i] + mark_cpu[i] + preclean_cpu[i] + abortable_preclean_cpu[i] + sweep_cpu[i] + remark_cpu[i] + reset_cpu[i]        
         old_cpu.push(Math.round(old))
-        old_cpu_pct.push(Math.round(100 * old / resolution))
+        old_cpu_pct.push(Math.round(100 * old))
         var total = cpu[i] + old
         total_cpu.push(Math.round(total))
-        total_cpu_pct.push(Math.round(100 * total / resolution))
+        total_cpu_pct.push(Math.round(100 * total))
     }
 
     var res = {}
@@ -168,7 +201,7 @@ var nextContainerId = 0;
 function createOverviewCharts() {
     var len = series.heap.length;
 
-    createDualAxisChart(createContainer(), len * 60,
+    createDualAxisChart(createContainer(), len * resolution,
         {
             name: "Used heap",
             unit: "MB",
@@ -180,7 +213,7 @@ function createOverviewCharts() {
         }
     );
 
-    createSingleAxisChart(createContainer(), len * 60, "CPU Utilization", "%",
+    createSingleAxisChart(createContainer(), len * resolution, "CPU Utilization", "%",
         [{
             name: "Young Gen collections",
             unit: "%",
@@ -193,7 +226,7 @@ function createOverviewCharts() {
         "GC CPU Utilization - Young Gen vs. Old Gen"
     );
 
-    createSingleAxisChart(createContainer(), len * 60, "Number of collections per minute", "",
+    createSingleAxisChart(createContainer(), len * resolution, "Number of collections per minute", "",
         [{
             name: "Young gen",
             unit: "",
@@ -203,24 +236,24 @@ function createOverviewCharts() {
             unit: "",
             data: series.old_collections
         }],
-        "Number of collections - Young gen vs. Old gen"
+        "Number of collections per minute - Young gen vs. Old gen"
     );
 
-    createSingleAxisChart(createContainer(), len * 60, "Memory", "MB",
+    createSingleAxisChart(createContainer(), len * resolution, "Memory", "MB",
          [{
-             name: "Allocated memory per minute",
+             name: "Allocated memory per second",
              unit: "MB",
              data: series.allocated
          }, {
-             name: "Promoted memory per minute",
+             name: "Promoted memory per second",
              unit: "MB",
              data: series.promoted
          }]
      );
 
-    createDualAxisChart(createContainer(), len * 60,
+    createDualAxisChart(createContainer(), len * resolution,
         {
-            name: "Allocated memory per minute",
+            name: "Allocated memory per second",
             unit: "MB",
             data: series.allocated
         }, {
@@ -230,9 +263,9 @@ function createOverviewCharts() {
         }
     );
 
-    createDualAxisChart(createContainer(), len * 60,
+    createDualAxisChart(createContainer(), len * resolution,
         {
-            name: "Promoted memory per minute",
+            name: "Promoted memory per second",
             unit: "MB",
             data: series.promoted
         }, {
@@ -243,7 +276,7 @@ function createOverviewCharts() {
     );
 
     /*
-    createDualAxisChart(createContainer(), len * 60,
+    createDualAxisChart(createContainer(), len * resolution,
         {
             name: "Used heap",
             unit: "MB",
@@ -265,9 +298,9 @@ function createOverviewCharts() {
 function createYoungGenCharts() {
     var len = series.heap.length;
 
-    createDualAxisChart(createContainer(), len * 60,
+    createDualAxisChart(createContainer(), len * resolution,
         {
-            name: "Allocated memory per minute",
+            name: "Allocated memory per second",
             unit: "MB",
             data: series.allocated
         }, {
@@ -277,9 +310,9 @@ function createYoungGenCharts() {
         }
     );
 
-    createDualAxisChart(createContainer(), len * 60,
+    createDualAxisChart(createContainer(), len * resolution,
         {
-            name: "Promoted memory per minute",
+            name: "Promoted memory per second",
             unit: "MB",
             data: series.promoted
         }, {
@@ -289,21 +322,21 @@ function createYoungGenCharts() {
         }
     );
 
-    createSingleAxisChart(createContainer(), len * 60, "Memory", "MB",
+    createSingleAxisChart(createContainer(), len * resolution, "Memory", "MB",
         [{
-            name: "Allocated memory per minute",
+            name: "Allocated memory per second",
             unit: "MB",
             data: series.allocated
         }, {
-            name: "Promoted memory per minute",
+            name: "Promoted memory per second",
             unit: "MB",
             data: series.promoted
         }]
     );
 
-    createDualAxisChart(createContainer(), len * 60,
+    createDualAxisChart(createContainer(), len * resolution,
         {
-            name: "Promoted memory per minute",
+            name: "Promoted memory per second",
             unit: "MB",
             data: series.promoted
         }, {
@@ -314,19 +347,19 @@ function createYoungGenCharts() {
     );
 
 
-    createDualAxisChart(createContainer(), len * 60,
+    createDualAxisChart(createContainer(), len * resolution,
         {
-            name: "GC wall clock time per minute",
+            name: "GC wall clock time per second",
             unit: "s",
             data: series.real
         }, {
-            name: "GC CPU time per minute",
+            name: "GC CPU time per second",
             unit: "s",
             data: series.cpu
         }
     );
 
-    createDualAxisChart(createContainer(), len * 60,
+    createDualAxisChart(createContainer(), len * resolution,
         {
             name: "Average GC wall clock time",
             unit: "ms",
@@ -339,49 +372,49 @@ function createYoungGenCharts() {
     );
 
     /*
-    createDualAxisChart(createContainer(), len * 60,
+    createDualAxisChart(createContainer(), len * resolution,
         {
             name: "Used heap",
             unit: "MB",
             data: series.heap
         }, {
-            name: "Collected garbage per minute",
+            name: "Collected garbage per second",
             unit: "MB",
             data: series.garbage
         }
     );
 
-    createDualAxisChart(createContainer(), len * 60,
+    createDualAxisChart(createContainer(), len * resolution,
         {
             name: "Used heap",
             unit: "MB",
             data: series.heap
         }, {
-            name: "Promoted memory per minute",
+            name: "Promoted memory per second",
             unit: "MB",
             data: series.promoted
         }
     );
 
-    createDualAxisChart(createContainer(), len * 60,
+    createDualAxisChart(createContainer(), len * resolution,
         {
-            name: "Allocated memory per minute",
+            name: "Allocated memory per second",
             unit: "MB",
             data: series.allocated
         }, {
-            name: "GC wall clock time per minute",
+            name: "GC wall clock time per second",
             unit: "s",
             data: series.real
         }
     );
 
-    createDualAxisChart(createContainer(), len * 60,
+    createDualAxisChart(createContainer(), len * resolution,
         {
-            name: "GC wall clock time per minute",
+            name: "GC wall clock time per second",
             unit: "s",
             data: series.real
         }, {
-            name: "GC CPU time per minute",
+            name: "GC CPU time per second",
             unit: "s",
             data: series.cpu
         }
@@ -392,7 +425,7 @@ function createYoungGenCharts() {
 function createOldGenCharts() {
     var len = series.heap.length;
 
-    createDualAxisChart(createContainer(), len * 60,
+    createDualAxisChart(createContainer(), len * resolution,
         {
             name: "Used heap",
             unit: "MB",
@@ -404,19 +437,19 @@ function createOldGenCharts() {
         }
     );
 
-    createSingleAxisChart(createContainer(), len * 60, "Memory", "MB",
+    createSingleAxisChart(createContainer(), len * resolution, "Memory", "MB",
          [{
-             name: "Promoted memory per minute",
+             name: "Promoted memory per second",
              unit: "MB",
              data: series.promoted
          }, {
-             name: "Collected old memory per minute",
+             name: "Collected old memory per second",
              unit: "MB",
              data: series.garbage_old
          }]
      );
 
-    createSingleAxisChart(createContainer(), len * 60, "CPU Time", "s",
+    createSingleAxisChart(createContainer(), len * resolution, "CPU Time per second", "s",
         [{
             name: "ParNewGen",
             data: series.cpu
@@ -442,10 +475,10 @@ function createOldGenCharts() {
             name: "CMS Reset",
             data: series.reset_cpu
         }],
-        "Garbage Collection CPU Time"
+        "Garbage Collection CPU Time per second"
     );
 
-    createSingleAxisChart(createContainer(), len * 60, "Wall clock time", "s",
+    createSingleAxisChart(createContainer(), len * resolution, "Wall clock time per second", "s",
         [{
             name: "ParNewGen",
             data: series.real
@@ -471,11 +504,11 @@ function createOldGenCharts() {
             name: "CMS Reset",
             data: series.reset_real
         }],
-        "Garbage Collection Wall Clock Time"
+        "Garbage Collection Wall Clock Time per second"
     );
 
     /*
-    createDualAxisChart(createContainer(), len * 60,
+    createDualAxisChart(createContainer(), len * resolution,
         {
             name: "CMS Mark wall clock time",
             unit: "s",
@@ -487,7 +520,7 @@ function createOldGenCharts() {
         }
     );
 
-    createDualAxisChart(createContainer(), len * 60,
+    createDualAxisChart(createContainer(), len * resolution,
         {
             name: "CMS Sweep wall clock time",
             unit: "s",
@@ -515,7 +548,7 @@ function createSingleAxisChart(id, duration, yName, yUnit, meta_series, title) {
         var s = meta_series[i];
         chart_series.push({
             name: s.name,
-            pointInterval: 60 * 1000,
+            pointInterval: resolution * 1000,
             type: 'spline',
             lineWidth: 2,
             marker: {
@@ -556,7 +589,7 @@ function createSingleAxisChart(id, duration, yName, yUnit, meta_series, title) {
         }],
         tooltip: {
             formatter: function() {
-                return this.y + ' ' + yUnit;
+                return Math.round(100 * this.y) / 100 + ' ' + yUnit;
             }
         },
         legend: {
@@ -629,7 +662,7 @@ function createDualAxisChart(id, duration, seriesA, seriesB) {
         tooltip: {
             formatter: function() {
                 return ''+
-                    this.y +
+                    Math.round(100 * this.y) / 100 +
                     (this.series.name == seriesA.name ? ' ' + seriesA.unit : ' ' + seriesB.unit);
             }
         },
@@ -645,7 +678,7 @@ function createDualAxisChart(id, duration, seriesA, seriesB) {
         series: [{
             name: seriesA.name,
             color: colorA,
-            pointInterval: 60 * 1000,
+            pointInterval: resolution * 1000,
             type: 'spline',
             lineWidth: 2,
             marker: {
@@ -656,7 +689,7 @@ function createDualAxisChart(id, duration, seriesA, seriesB) {
         {
             name: seriesB.name,
             color: colorB,
-            pointInterval: 60 * 1000,
+            pointInterval: resolution * 1000,
             type: 'spline',
             lineWidth: 2,
             marker: {
